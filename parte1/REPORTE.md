@@ -101,19 +101,36 @@ A esto se suman otras dificultades propias del formato empaquetado:
 
 ## 3.3 Conmutación de mensajes
 
+Para esta parte, el grupo se organizó de la siguiente manera:
+
+- **Conmutador:** Esteban (E)
+- **Clientes:** Jorge Luis Felipe Aguilar (J), Fernando Rueda (R), Fernando Hernández (F)
+
+### Protocolo utilizado
+
+Cada cliente identificó con una **letra distintiva** (la inicial de su nombre) tanto a sí mismo como a los demás clientes: J para Jorge Luis Felipe, R para Rueda, F para Fernando Hernández y E para Esteban (conmutador). Con esto se definió el siguiente protocolo:
+
+1. **Direccionamiento del mensaje:** cada nota de voz enviada al conmutador comenzaba con una sola letra que indicaba el **destinatario final** del mensaje (por ejemplo, una nota de voz que iniciaba con "R" debía ser reenviada por el conmutador al cliente Rueda). El conmutador escuchaba esa primera letra de la nota recibida y, con base en ella, decidía a quién reenviarla.
+2. **Señal de "listo para recibir" (control de flujo):** el conmutador solo podía atender a un cliente a la vez, por lo que se estableció una señal de control: el conmutador enviaba una nota de voz con solo la letra **"Y"** al cliente que debía transmitir a continuación, indicando "ya estoy libre, puedes enviar tu mensaje ahora". El cliente que recibía la "Y" quedaba habilitado para enviar su nota de voz con el mensaje dirigido a otro cliente.
+3. **Ciclo de atención:** al recibir una nota de un cliente, el conmutador (a) leía la primera letra para saber el destino, (b) reenviaba el audio a ese destinatario, y (c) enviaba una "Y" al siguiente cliente en turno para habilitar su envío. Este ciclo se repetía secuencialmente, de forma que en todo momento solo un cliente tenía "permiso" para transmitir, evitando que dos clientes enviaran audios al conmutador al mismo tiempo.
+
+De esta forma, el destino se determinó mediante un **identificador explícito al inicio del mensaje** (similar a una dirección de destino en un encabezado de paquete), y la sobrecarga del conmutador se evitó mediante un **esquema de turnos controlado por una señal explícita de disponibilidad** (análogo a un mecanismo de control de flujo/token de acceso al medio), en vez de dejar que los clientes enviaran mensajes de forma libre y simultánea.
+
 ### ¿Qué posibilidades incluye la introducción de un conmutador en el sistema?
 
-[Placeholder — completar: p. ej. permite que múltiples clientes se comuniquen sin una conexión directa entre cada par, centraliza el enrutamiento de mensajes, posibilita agregar más clientes sin que cada uno necesite un canal con todos los demás, etc.]
+Un conmutador permite que los clientes se comuniquen **sin necesidad de un canal directo entre cada par de ellos**: en lugar de que cada cliente tenga que coordinar y mantener una conexión individual con todos los demás (lo cual crecería rápidamente en complejidad conforme aumenta el número de clientes), basta con que cada uno tenga una única conexión hacia el conmutador. Esto centraliza el enrutamiento de los mensajes y hace que sea el conmutador quien decida hacia dónde reenviar cada transmisión según la información de direccionamiento (en nuestro caso, la letra inicial del mensaje). También facilita escalar el sistema agregando nuevos clientes sin rediseñar toda la red, ya que solo se necesita una nueva conexión hacia el conmutador existente, y permite implementar reglas de control (como nuestro esquema de turnos con la señal "Y") para ordenar el acceso al medio y evitar colisiones o sobrecarga.
 
 ### ¿Qué ventajas/desventajas se tienen al momento de agregar más conmutadores al sistema?
 
-**Ventajas:** [Placeholder — p. ej. mayor redundancia, distribución de carga, menor probabilidad de cuello de botella en un único punto]
+**Ventajas:**
+- Se reduce la carga sobre un único conmutador al distribuir los clientes entre varios, disminuyendo la probabilidad de que se convierta en un cuello de botella.
+- Se gana redundancia: si un conmutador falla o se satura, otro puede seguir atendiendo parte de la red.
+- Permite escalar geográficamente o por grupos, conectando conmutadores entre sí en lugar de que todos los clientes dependan de un solo punto central.
 
-**Desventajas:** [Placeholder — p. ej. mayor complejidad de coordinación, más retrasos por saltos adicionales, mayor posibilidad de error al reenviar entre conmutadores]
-
-### Protocolo utilizado en la parte 3.3
-
-[Placeholder — explicar cómo determinaron el destino del mensaje (p. ej. identificador de emisor/receptor al inicio del mensaje), cómo indicaron que el conmutador estaba listo para recibir, y cómo evitaron sobrecargarlo (p. ej. turnos, confirmación de recepción antes del siguiente envío).]
+**Desventajas:**
+- Aumenta la complejidad del enrutamiento, ya que ahora un mensaje puede requerir varios saltos (cliente → conmutador A → conmutador B → cliente destino) en lugar de un solo salto.
+- Cada salto adicional introduce más retraso y más oportunidades de error o pérdida en la transmisión (como se evidenció en la parte 3.2, donde incluso un solo salto ya generaba errores de recepción).
+- Se requiere coordinación adicional entre los conmutadores (saber qué conmutador atiende a qué clientes), lo que añade overhead de gestión que no existe con un único conmutador.
 
 ---
 
