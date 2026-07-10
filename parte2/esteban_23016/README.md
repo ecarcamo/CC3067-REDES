@@ -74,7 +74,39 @@ Se ocultaron todas las interfaces virtuales/remotas (Loopback, Libvirt Bridge, D
 
 ## 3.5 Configuración de la captura de paquetes (ring buffer)
 
-_Pendiente_
+### Salida de `ip a`
+
+Se ejecutó `ip a` (equivalente moderno de `ifconfig` en Linux) para listar las interfaces de red:
+
+![Salida de ip a](images/10_ip_a.png)
+
+- **lo**: interfaz de loopback (`127.0.0.1/8`, `::1/128`), usada para tráfico local de la propia máquina, estado `UNKNOWN` (normal en loopback) pero `UP`.
+- **enp109s0**: interfaz Ethernet física (nomenclatura *predictable network interface names* de systemd: `en`=Ethernet, `p109`=bus PCI, `s0`=slot). Estado `UP,LOWER_UP` (enlace físico activo), MTU 1500, con IP `192.168.1.39/24` asignada por DHCP (`dynamic`) y varias direcciones IPv6 (global y link-local `fe80::`).
+- **wlan0**: interfaz inalámbrica, también `UP`, con IP `192.168.1.34/24` y direcciones IPv6 análogas a la anterior.
+- **virbr0, docker0, br-9fdc57030137, br-e9c582f35adc**: bridges virtuales creados por `libvirt` (virtualización KVM) y Docker, en estado `DOWN`/`NO-CARRIER` porque no tienen tráfico ni contenedores/VMs activos en este momento. Cada uno tiene su propia subred privada (`192.168.122.0/24`, `172.17-19.0.0/16`).
+
+Se identifican dos interfaces "reales" con conexión a la red física/inalámbrica (`enp109s0`, `wlan0`) y varias interfaces virtuales de software que no participan en la captura de tráfico externo.
+
+### Configuración del ring buffer
+
+En `Captura -> Opciones -> Salida` se configuró:
+- Archivo: `lab1_23016` (formato `pcapng`)
+- Crear un nuevo archivo automáticamente después de `5` megabytes
+- Usar un buffer cíclico con `10` archivos
+
+![Configuración del ring buffer](images/11_ring_buffer_config.png)
+
+### Captura en progreso
+
+Se inició la captura sobre la interfaz `enp109s0`, generando tráfico de red hasta acumular varios archivos.
+
+![Captura en progreso](images/12_captura_en_progreso.png)
+
+### Archivos generados
+
+Al detener la captura se generaron 10 archivos de ~5 MB cada uno (`lab1_23016_20260709233049_00005` a `..._00014`). La numeración iniciando en `00005` (en vez de `00001`) confirma que el buffer cíclico funcionó correctamente, sobrescribiendo/descartando los archivos más antiguos y conservando únicamente los últimos 10.
+
+![Archivos del ring buffer generados](images/13_archivos_generados.png)
 
 ## 3.6 Análisis de paquetes (HTTP)
 
