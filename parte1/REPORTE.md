@@ -11,6 +11,12 @@
 
 ---
 
+## Introducción
+
+En este laboratorio se exploraron distintos esquemas de comunicación utilizados históricamente en la telegrafía —código Morse y código Baudot— con el objetivo de identificar sus ventajas, desventajas y complejidad al momento de transmitir información. La actividad se dividió en tres partes: primero se practicó el envío y recepción de mensajes en tiempo real utilizando ambos esquemas mediante una estación de telégrafo virtual y comunicación por voz; luego se repitió la dinámica utilizando el esquema más fácil, pero enviando los mensajes de forma "empaquetada" mediante notas de voz; y finalmente se simuló un esquema de conmutación de mensajes, cooperando con otra pareja, donde un integrante actuó como conmutador y los demás como clientes. A lo largo de las tres partes se registraron los aciertos y errores de cada transmisión para comparar cuantitativamente el desempeño de cada esquema y forma de envío.
+
+---
+
 ## 3.1 Transmisión de códigos
 
 ### Resultados
@@ -136,4 +142,8 @@ Un conmutador permite que los clientes se comuniquen **sin necesidad de un canal
 
 ## Conclusiones
 
-[Placeholder — agregar conclusiones grupales sobre la actividad]
+- El código Morse resultó más fácil de recibir que el código Baudot porque se apoya en un patrón rítmico (duración e intervalos de pulsos) que el oído humano reconoce con mayor naturalidad, mientras que Baudot exige contar con exactitud una secuencia de 5 bits por carácter sin ninguna pista rítmica que ayude a diferenciarlos. Esto se reflejó directamente en la tasa de error: 50.0% en Morse frente a 66.7% en Baudot durante la transmisión en tiempo real.
+- El formato "empaquetado" (notas de voz) no mejoró la tasa de error frente a la transmisión en vivo con Morse (se mantuvo en 50.0%), pero sí cambió la naturaleza de las dificultades: al no existir retroalimentación en tiempo real ni posibilidad de pausar o pedir aclaración a media transmisión, un solo error de conteo en el receptor podía arruinar la interpretación del resto del mensaje, y la corrección solo era posible reenviando la nota completa.
+- La introducción de un conmutador permitió que los tres clientes se comunicaran entre sí sin necesidad de un canal directo entre cada par, centralizando el enrutamiento mediante un identificador simple (la letra inicial del destinatario) y evitando colisiones mediante una señal explícita de turno ("Y"). Esto evidenció, a pequeña escala, los mismos principios que utilizan los conmutadores y routers reales para direccionar y controlar el flujo de paquetes en una red.
+- Agregar más conmutadores a un sistema implica un balance entre robustez/escalabilidad (menor carga por conmutador, redundancia) y complejidad operativa (más saltos, más retrasos, más coordinación entre conmutadores), un compromiso que también aplica a las redes de computadoras reales al decidir su topología.
+- En general, la actividad permitió comprobar de forma práctica que la elección de un esquema de codificación y la forma en que se empaqueta y enruta la información tienen un impacto medible en la tasa de error y en la complejidad de la comunicación, incluso en un sistema tan simple como el simulado en este laboratorio.
