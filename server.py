@@ -60,8 +60,14 @@ def handle_client(conn):
             amount = data.get("amount", 0)
             account = ACCOUNTS[authenticated_card]
 
-            # TODO (students): validate the amount and check for sufficient funds
-            # before approving the withdrawal.
+            if amount <= 0:
+                send_msg(conn, "error", {"message": "Invalid amount"})
+                continue
+
+            if amount > account["balance"]:
+                send_msg(conn, "error", {"message": "Insufficient funds"})
+                continue
+
             account["balance"] -= amount
             send_msg(conn, "withdraw_ok", {
                 "amount": amount,
