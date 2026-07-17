@@ -2,7 +2,7 @@ import socket
 import json
 
 HOST = "127.0.0.1"
-PORT = 9000
+PORT = 2705
 
 
 def send_msg(sock, action, data):

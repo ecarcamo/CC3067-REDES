@@ -5,10 +5,11 @@ import json
 ACCOUNTS = {
     "4111111111111111": {"pin": "1234", "balance": 500.00},
     "5500005555555559": {"pin": "0000", "balance": 1200.50},
+    "23016": {"pin": "123456789", "balance": 400},
 }
 
 HOST = "127.0.0.1"   # loopback: same machine
-PORT = 9000          # arbitrary port above 1024
+PORT = 2705          # arbitrary port above 1024
 
 
 def send_msg(conn, action, data):
