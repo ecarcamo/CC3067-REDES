@@ -1,0 +1,11 @@
+{
+  "name": "lab2-receptor",
+  "version": "1.0.0",
+  "description": "Servidor bancario - receptor del Laboratorio 2 (deteccion y correccion de errores)",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js",
+    "test": "node --test tests/"
+  }
+}
