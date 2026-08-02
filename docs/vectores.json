@@ -19,5 +19,24 @@
       "bits_esperados": "01000001"
     }
   ],
-  "crc32": []
+  "crc32": [
+    {
+      "descripcion": "cadena 'Hola' sin error",
+      "entrada": "01001000011011110110110001100001",
+      "trama_esperada": "0100100001101111011011000110000111001111100100100101011010110110",
+      "parametros": { "bits_datos": 32 },
+      "trama_recibida": "0100100001101111011011000110000111001111100100100101011010110110",
+      "estado_esperado": "sin_error",
+      "bits_esperados": "01001000011011110110110001100001"
+    },
+    {
+      "descripcion": "cadena 'Hola' con 1 bit volteado -> error no corregible",
+      "entrada": "01001000011011110110110001100001",
+      "trama_esperada": "0100100001101111011011000110000111001111100100100101011010110110",
+      "parametros": { "bits_datos": 32 },
+      "trama_recibida": "0110100001101111011011000110000111001111100100100101011010110110",
+      "estado_esperado": "error_no_corregible",
+      "bits_esperados": null
+    }
+  ]
 }
