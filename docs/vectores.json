@@ -1,4 +1,23 @@
 {
-  "hamming": [],
+  "hamming": [
+    {
+      "descripcion": "caracter 'A' sin error",
+      "entrada": "01000001",
+      "trama_esperada": "100010010001",
+      "parametros": { "m": 8, "bloques": 1 },
+      "trama_recibida": "100010010001",
+      "estado_esperado": "sin_error",
+      "bits_esperados": "01000001"
+    },
+    {
+      "descripcion": "caracter 'A' con 1 bit volteado (posicion 5) -> corregible",
+      "entrada": "01000001",
+      "trama_esperada": "100010010001",
+      "parametros": { "m": 8, "bloques": 1 },
+      "trama_recibida": "100000010001",
+      "estado_esperado": "corregido",
+      "bits_esperados": "01000001"
+    }
+  ],
   "crc32": []
 }
