@@ -4,9 +4,9 @@ from algoritmos.contrato import ResultadoVerificacion, TramaCodificada
 from algoritmos.registro import obtener_algoritmo
 
 
-def calcular_integridad(bits: str, nombre_algoritmo: str) -> TramaCodificada:
+def calcular_integridad(bits: str, nombre_algoritmo: str, configuracion: dict | None = None) -> TramaCodificada:
     """Delega en el algoritmo del registro y devuelve la trama con redundancia."""
-    return obtener_algoritmo(nombre_algoritmo).calcular(bits)
+    return obtener_algoritmo(nombre_algoritmo, configuracion).calcular(bits)
 
 
 def verificar_integridad(trama: str, nombre_algoritmo: str, parametros: dict) -> ResultadoVerificacion:

@@ -2,8 +2,6 @@
 
 from algoritmos.contrato import EstadoVerificacion, ResultadoVerificacion, TramaCodificada
 
-BITS_POR_CARACTER = 8
-
 
 def calcular_bits_paridad(m: int) -> int:
     """Devuelve el r mas chico que cumple m + r + 1 <= 2**r."""
@@ -68,11 +66,18 @@ def decodificar_bloque(bloque: str) -> tuple[str, int]:
 class Hamming:
     nombre = "hamming"
 
+    def __init__(self, m: int = 8):
+        if m < 1:
+            raise ValueError("m debe ser mayor que cero")
+        self.m = m
+
     def calcular(self, bits: str) -> TramaCodificada:
-        m = BITS_POR_CARACTER
+        m = self.m
+        bits_datos = len(bits)
+        bits = bits + "0" * ((-bits_datos) % m)
         bloques_datos = [bits[i : i + m] for i in range(0, len(bits), m)]
         trama = "".join(codificar_bloque(bloque) for bloque in bloques_datos)
-        return TramaCodificada(bits=trama, parametros={"m": m, "bloques": len(bloques_datos)})
+        return TramaCodificada(bits=trama, parametros={"m": m, "bloques": len(bloques_datos), "bits_datos": bits_datos})
 
     def verificar(self, trama: str, parametros: dict) -> ResultadoVerificacion:
         m = parametros["m"]
@@ -94,4 +99,6 @@ class Hamming:
             estado = EstadoVerificacion.SIN_ERROR
             detalle = "sin errores detectados"
 
-        return ResultadoVerificacion(estado=estado, bits="".join(bits_datos), detalle=detalle)
+        recuperados = "".join(bits_datos)
+        recuperados = recuperados[: parametros.get("bits_datos", len(recuperados))]
+        return ResultadoVerificacion(estado=estado, bits=recuperados, detalle=detalle)

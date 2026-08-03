@@ -59,6 +59,17 @@ def test_mensaje_de_varios_caracteres_procesa_todos_los_bloques():
     assert resultado.bits == bits
 
 
+@pytest.mark.parametrize("m", [4, 8, 11, 16])
+def test_configuraciones_corrigen_un_bit_y_preservan_longitud(m):
+    bits = "10101010101"
+    hamming = Hamming(m)
+    codificada = hamming.calcular(bits)
+    for posicion in range(len(codificada.bits)):
+        alterada = list(codificada.bits)
+        alterada[posicion] = "1" if alterada[posicion] == "0" else "0"
+        assert hamming.verificar("".join(alterada), codificada.parametros).bits == bits
+
+
 @pytest.mark.parametrize("vector", cargar_vectores())
 def test_vectores_compartidos(vector):
     hamming = Hamming()

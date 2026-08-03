@@ -17,6 +17,24 @@
       "trama_recibida": "100000010001",
       "estado_esperado": "corregido",
       "bits_esperados": "01000001"
+    },
+    {
+      "descripcion": "longitud parcial con m=4",
+      "parametros": { "m": 4, "bloques": 3, "bits_datos": 11 },
+      "trama_recibida": "100110011010011001100",
+      "estado_esperado": "sin_error", "bits_esperados": "01000001010"
+    },
+    {
+      "descripcion": "longitud parcial con m=16",
+      "parametros": { "m": 16, "bloques": 1, "bits_datos": 11 },
+      "trama_recibida": "110110000001010000000",
+      "estado_esperado": "sin_error", "bits_esperados": "01000001010"
+    },
+    {
+      "descripcion": "dos bits: limitacion SEC documentada",
+      "parametros": { "m": 8, "bloques": 1, "bits_datos": 8 },
+      "trama_recibida": "010010010001",
+      "estado_esperado": "corregido", "bits_esperados": "11000001"
     }
   ],
   "crc32": [
@@ -37,6 +55,21 @@
       "trama_recibida": "0110100001101111011011000110000111001111100100100101011010110110",
       "estado_esperado": "error_no_corregible",
       "bits_esperados": null
+    },
+    {
+      "descripcion": "vector canonico ASCII 123456789",
+      "parametros": { "bits_datos": 72 },
+      "trama_recibida": "00110001001100100011001100110100001101010011011000110111001110000011100111001011111101000011100100100110",
+      "estado_esperado": "sin_error",
+      "bits_esperados": "001100010011001000110011001101000011010100110110001101110011100000111001"
     }
+  ],
+  "fletcher": [
+    {"descripcion":"Fletcher-8 minimo","parametros":{"tamano_bloque":8,"bits_datos":1},"trama_recibida":"100000001000000010000000","estado_esperado":"sin_error","bits_esperados":"1"},
+    {"descripcion":"Fletcher-8 dos palabras","parametros":{"tamano_bloque":8,"bits_datos":16},"trama_recibida":"01000001010000101100010010000011","estado_esperado":"sin_error","bits_esperados":"0100000101000010"},
+    {"descripcion":"Fletcher-16 minimo","parametros":{"tamano_bloque":16,"bits_datos":1},"trama_recibida":"100000000000000010000000000000001000000000000000","estado_esperado":"sin_error","bits_esperados":"1"},
+    {"descripcion":"Fletcher-16 una palabra","parametros":{"tamano_bloque":16,"bits_datos":16},"trama_recibida":"010000010100001001000001010000100100000101000010","estado_esperado":"sin_error","bits_esperados":"0100000101000010"},
+    {"descripcion":"Fletcher-32 minimo","parametros":{"tamano_bloque":32,"bits_datos":1},"trama_recibida":"100000000000000000000000000000001000000000000000000000000000000010000000000000000000000000000000","estado_esperado":"sin_error","bits_esperados":"1"},
+    {"descripcion":"Fletcher-32 con relleno","parametros":{"tamano_bloque":32,"bits_datos":16},"trama_recibida":"010000010100001000000000000000000100000101000010000000000000000001000001010000100000000000000000","estado_esperado":"sin_error","bits_esperados":"0100000101000010"}
   ]
 }

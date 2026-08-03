@@ -43,9 +43,9 @@ cadena idénticas (`"sin_error"`, `"corregido"`, `"error_no_corregible"`) y
 objetos planos con las mismas llaves: `{ bits, parametros }` y
 `{ estado, bits, detalle }`.
 
-Reglas del algoritmo de detección (CRC-32): `verificar()` solo puede devolver
-`SIN_ERROR` o `ERROR_NO_CORREGIBLE`. Nunca `CORREGIDO`, porque un algoritmo de
-detección no corrige.
+Reglas de los algoritmos de detección (CRC-32 y Fletcher): `verificar()` solo
+puede devolver `SIN_ERROR` o `ERROR_NO_CORREGIBLE`. Nunca `CORREGIDO`, porque
+un algoritmo de detección no corrige.
 
 ## Contrato de capas (emisor)
 
@@ -63,8 +63,10 @@ aplica del lado del emisor).
 ## Registro de algoritmos
 
 `algoritmos/registro.py` (y su espejo `algoritmos/registro.js`) mapean el
-nombre del algoritmo (`"hamming"` / `"crc32"`) a su instancia. Agregar un
-algoritmo nuevo es una línea en el registro; la capa de enlace no cambia.
+nombre del algoritmo (`"hamming"`, `"crc32"` o `"fletcher"`) a su instancia.
+La configuración opcional se usa solo al calcular; `verificar()` recibe los
+valores efectivos en `parametros`. La capa de enlace no conoce la lógica de
+ningún algoritmo.
 
 Ver también [`docs/PROTOCOLO.md`](PROTOCOLO.md) para el formato exacto de la
 trama en el socket, y [`docs/vectores.json`](vectores.json) para los casos de

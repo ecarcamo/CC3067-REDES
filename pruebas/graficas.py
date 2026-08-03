@@ -9,8 +9,8 @@ import matplotlib.pyplot as plt
 RUTA_CSV = Path(__file__).resolve().parent / "resultados" / "resultados.csv"
 RUTA_GRAFICAS = Path(__file__).resolve().parent / "graficas"
 
-ALGORITMOS = ["hamming", "crc32"]
-COLOR_ALGORITMO = {"hamming": "#1f77b4", "crc32": "#d62728"}
+ALGORITMOS = ["hamming", "fletcher", "crc32"]
+COLOR_ALGORITMO = {"hamming": "#1f77b4", "fletcher": "#9467bd", "crc32": "#d62728"}
 COLOR_ESTADO = {"sin_error": "#2ca02c", "corregido": "#ff7f0e", "error_no_corregible": "#d62728"}
 
 
@@ -128,6 +128,26 @@ def graficar_falsos_negativos(filas: list[dict]) -> None:
     plt.close()
 
 
+def graficar_overhead_vs_exito(filas: list[dict]) -> None:
+    """Resume el costo y exito de cada configuracion."""
+    grupos = defaultdict(list)
+    for fila in filas:
+        grupos[f"{fila['algoritmo']} {fila['configuracion']}"].append(fila)
+    plt.figure(figsize=(8, 5))
+    for etiqueta, grupo in grupos.items():
+        overhead = sum(float(f["overhead_pct"]) for f in grupo) / len(grupo)
+        exito = sum(f["mensaje_correcto"] == "True" for f in grupo) / len(grupo)
+        plt.scatter(overhead, exito, label=etiqueta)
+    plt.xlabel("Overhead promedio (%)")
+    plt.ylabel("Tasa de exito")
+    plt.title("Overhead vs. tasa de exito")
+    plt.legend(fontsize=8)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(RUTA_GRAFICAS / "overhead_vs_tasa_exito.png", dpi=150)
+    plt.close()
+
+
 def main() -> None:
     RUTA_GRAFICAS.mkdir(parents=True, exist_ok=True)
     filas = cargar_filas()
@@ -136,6 +156,7 @@ def main() -> None:
     graficar_overhead_vs_longitud(filas)
     graficar_distribucion_estados(filas)
     graficar_falsos_negativos(filas)
+    graficar_overhead_vs_exito(filas)
 
     print(f"[GRAFICAS] imagenes generadas en {RUTA_GRAFICAS}")
 

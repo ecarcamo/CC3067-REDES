@@ -32,4 +32,15 @@ def recibir_informacion(lector: LectorLineas) -> dict | None:
     linea = lector.leer_linea()
     if linea is None:
         return None
-    return json.loads(linea)
+    try:
+        sobre = json.loads(linea)
+    except json.JSONDecodeError as error:
+        raise ValueError("sobre JSON invalido") from error
+    if not isinstance(sobre, dict) or sobre.get("version") != 1:
+        raise ValueError("version de sobre no soportada")
+    if not isinstance(sobre.get("algoritmo"), str) or not isinstance(sobre.get("parametros"), dict):
+        raise ValueError("campos basicos del sobre invalidos")
+    trama = sobre.get("trama")
+    if not isinstance(trama, str) or any(bit not in "01" for bit in trama):
+        raise ValueError("trama debe ser una cadena binaria")
+    return sobre

@@ -11,9 +11,9 @@ import { LectorLineas, enviarInformacion, recibirInformacion } from "./capas/tra
 const HOST = "127.0.0.1";
 const PORT = 2705;
 
-function enviarRespuesta(conn, mensaje, algoritmo) {
+function enviarRespuesta(conn, mensaje, algoritmo, configuracion = {}) {
   const bits = codificarMensaje(JSON.stringify(mensaje));
-  const tramaCodificada = calcularIntegridad(bits, algoritmo);
+  const tramaCodificada = calcularIntegridad(bits, algoritmo, configuracion);
   enviarInformacion(conn, tramaCodificada.bits, algoritmo, tramaCodificada.parametros);
 }
 
@@ -23,7 +23,7 @@ function procesarLinea(conn, linea, sesion) {
 
   if (resultado.bits === null) {
     console.log(`[RECEPTOR] Trama corrupta: ${resultado.detalle}`);
-    enviarRespuesta(conn, { action: "error", data: { message: `Trama corrupta: ${resultado.detalle}` } }, sobre.algoritmo);
+    enviarRespuesta(conn, { action: "error", data: { message: `Trama corrupta: ${resultado.detalle}` } }, sobre.algoritmo, sobre.parametros);
     return true;
   }
 
@@ -38,13 +38,13 @@ function procesarLinea(conn, linea, sesion) {
     // Falso negativo: el algoritmo reporto sin_error/corregido pero el mensaje
     // decodificado no es valido (limitacion conocida de Hamming con errores dobles).
     console.log(`[RECEPTOR] Mensaje irrecuperable pese a estado=${resultado.estado}: ${error.message}`);
-    enviarRespuesta(conn, { action: "error", data: { message: "Mensaje corrupto" } }, sobre.algoritmo);
+    enviarRespuesta(conn, { action: "error", data: { message: "Mensaje corrupto" } }, sobre.algoritmo, sobre.parametros);
     return true;
   }
   console.log(`[RECEPTOR] Recibido: ${JSON.stringify(mensaje)}`);
 
   const respuesta = manejarAccion(mensaje, sesion);
-  enviarRespuesta(conn, respuesta, sobre.algoritmo);
+  enviarRespuesta(conn, respuesta, sobre.algoritmo, sobre.parametros);
 
   return respuesta.action !== "logout_ok";
 }

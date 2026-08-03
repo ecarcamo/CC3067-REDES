@@ -8,7 +8,7 @@ tener un final explícito).
 {
   "version": 1,
   "algoritmo": "hamming",
-  "parametros": { "m": 8, "bloques": 5 },
+  "parametros": { "m": 8, "bloques": 5, "bits_datos": 40 },
   "trama": "011010010110..."
 }
 ```
@@ -16,7 +16,7 @@ tener un final explícito).
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `version` | int | Fijo en `1` |
-| `algoritmo` | string | `"hamming"` o `"crc32"` |
+| `algoritmo` | string | `"hamming"`, `"crc32"` o `"fletcher"` |
 | `parametros` | objeto | Lo que devolvió `calcular()`. El receptor lo pasa tal cual a `verificar()` |
 | `trama` | string | Solo caracteres `'0'` y `'1'`. **Ya trae el ruido aplicado** |
 
@@ -25,7 +25,9 @@ tener un final explícito).
 - `version`, `algoritmo` y `parametros` son metadatos de control: **no se
   les aplica ruido**.
 - `trama` es lo único que pasa por la capa de ruido. Incluye los bits de
-  redundancia (paridad de Hamming o checksum CRC-32).
+  redundancia (paridad de Hamming o checksum CRC-32/Fletcher).
+- Hamming incluye `m`, `bloques` y `bits_datos`. Fletcher incluye
+  `tamano_bloque` y `bits_datos`; así se elimina únicamente el relleno real.
 - Un mensaje = una línea. El receptor (`main.js`) hace *buffering* hasta
   encontrar `\n` antes de parsear el JSON, porque `recv()`/`data` puede
   entregar mensajes partidos o pegados.

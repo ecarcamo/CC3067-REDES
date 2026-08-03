@@ -70,3 +70,17 @@ CRC-32 nunca corrige (por diseño): ante cualquier bit alterado, el
 checksum recalculado no coincide y la capa de enlace reporta
 `error_no_corregible`. La capa de aplicación lo refleja al usuario y pide
 reintentar el login, sin procesar la operación.
+
+## 5. Limitación observada de Hamming — `data` cambia a `date`
+
+En una sesión real con Hamming y probabilidad `0.01`, dos alteraciones dentro
+de un bloque produjeron una corrección equivocada. Esta es salida textual
+observada; no se presenta como captura de pantalla:
+
+```
+[RECEPTOR] Recibido: {"action":"withdraw","date":{"amount":25}}
+>> Monto invalido
+```
+
+La matriz documenta explícitamente el cambio `data` → `date`. Confirma que
+Hamming SEC no garantiza detectar un error doble en el mismo bloque.

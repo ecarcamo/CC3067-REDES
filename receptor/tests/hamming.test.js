@@ -58,6 +58,19 @@ test("mensaje de varios caracteres procesa todos los bloques", () => {
   assert.equal(resultado.bits, bits);
 });
 
+test("m configurable corrige un bit y preserva la longitud", () => {
+  for (const m of [4, 8, 11, 16]) {
+    const hamming = new Hamming(m);
+    const bits = "10101010101";
+    const codificada = hamming.calcular(bits);
+    for (let i = 0; i < codificada.bits.length; i += 1) {
+      const alterada = codificada.bits.split("");
+      alterada[i] = alterada[i] === "0" ? "1" : "0";
+      assert.equal(hamming.verificar(alterada.join(""), codificada.parametros).bits, bits);
+    }
+  }
+});
+
 test("vectores compartidos", () => {
   const hamming = new Hamming();
   for (const vector of cargarVectores()) {

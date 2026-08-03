@@ -4,16 +4,43 @@ import json
 
 from algoritmos.contrato import EstadoVerificacion, ResultadoVerificacion
 
-ALGORITMOS_VALIDOS = ("hamming", "crc32")
+ALGORITMOS_VALIDOS = ("hamming", "crc32", "fletcher")
 
 
-def solicitar_configuracion() -> tuple[str, float]:
+def _solicitar_entero(mensaje: str, validos: set[int] | None = None) -> int:
+    while True:
+        try:
+            valor = int(input(mensaje).strip())
+            if valor >= 1 and (validos is None or valor in validos):
+                return valor
+        except ValueError:
+            pass
+        print(">> Configuracion invalida.")
+
+
+def solicitar_configuracion() -> tuple[str, float, dict]:
     """Pide el algoritmo de integridad y la tasa de error para toda la sesion."""
     algoritmo = ""
     while algoritmo not in ALGORITMOS_VALIDOS:
         algoritmo = input(f"Algoritmo ({'/'.join(ALGORITMOS_VALIDOS)}): ").strip().lower()
-    probabilidad = float(input("Tasa de error por bit (ej. 0.01): ").strip())
-    return algoritmo, probabilidad
+
+    parametros = {}
+    if algoritmo == "hamming":
+        parametros["m"] = _solicitar_entero("Bits de datos por bloque m (ej. 4/8/11/16): ")
+    elif algoritmo == "fletcher":
+        parametros["tamano_bloque"] = _solicitar_entero(
+            "Tamano de bloque Fletcher (8/16/32): ", {8, 16, 32}
+        )
+
+    while True:
+        try:
+            probabilidad = float(input("Tasa de error por bit (ej. 0.01): ").strip())
+            if 0 <= probabilidad <= 1:
+                break
+        except ValueError:
+            pass
+        print(">> La tasa debe estar entre 0 y 1.")
+    return algoritmo, probabilidad, parametros
 
 
 def solicitar_login() -> str:
@@ -55,7 +82,11 @@ def mostrar_mensaje(texto: str | None, resultado: ResultadoVerificacion) -> None
     if resultado.estado == EstadoVerificacion.CORREGIDO:
         print(f">> (se corrigio un error de transmision: {resultado.detalle})")
 
-    respuesta = json.loads(texto)
+    try:
+        respuesta = json.loads(texto)
+    except json.JSONDecodeError:
+        print(">> Respuesta corrupta del banco")
+        return
     data = respuesta.get("data", {})
 
     if respuesta.get("action") == "withdraw_ok":

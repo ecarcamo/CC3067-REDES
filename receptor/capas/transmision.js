@@ -30,5 +30,10 @@ export function enviarInformacion(conn, trama, algoritmo, parametros) {
 
 /** @param {string} linea @returns {Object} */
 export function recibirInformacion(linea) {
-  return JSON.parse(linea);
+  let sobre;
+  try { sobre = JSON.parse(linea); } catch { throw new Error("sobre JSON invalido"); }
+  if (!sobre || sobre.version !== 1) throw new Error("version de sobre no soportada");
+  if (typeof sobre.algoritmo !== "string" || typeof sobre.parametros !== "object") throw new Error("campos basicos del sobre invalidos");
+  if (typeof sobre.trama !== "string" || /[^01]/.test(sobre.trama)) throw new Error("trama debe ser una cadena binaria");
+  return sobre;
 }

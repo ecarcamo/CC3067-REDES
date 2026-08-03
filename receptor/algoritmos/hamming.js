@@ -88,14 +88,22 @@ export function decodificarBloque(bloque) {
 export class Hamming extends AlgoritmoIntegridad {
   nombre = "hamming";
 
+  constructor(m = 8) {
+    super();
+    if (!Number.isInteger(m) || m < 1) throw new Error("m debe ser mayor que cero");
+    this.m = m;
+  }
+
   calcular(bits) {
-    const m = BITS_POR_CARACTER;
+    const m = this.m;
+    const bitsDatos = bits.length;
+    bits += "0".repeat((m - (bits.length % m)) % m);
     const bloquesDatos = [];
     for (let i = 0; i < bits.length; i += m) {
       bloquesDatos.push(bits.slice(i, i + m));
     }
     const trama = bloquesDatos.map(codificarBloque).join("");
-    return { bits: trama, parametros: { m, bloques: bloquesDatos.length } };
+    return { bits: trama, parametros: { m, bloques: bloquesDatos.length, bits_datos: bitsDatos } };
   }
 
   verificar(trama, parametros) {
@@ -120,6 +128,6 @@ export class Hamming extends AlgoritmoIntegridad {
     const estado = correcciones.length > 0 ? EstadoVerificacion.CORREGIDO : EstadoVerificacion.SIN_ERROR;
     const detalle = correcciones.length > 0 ? correcciones.join("; ") : "sin errores detectados";
 
-    return { estado, bits: bitsDatos.join(""), detalle };
+    return { estado, bits: bitsDatos.join("").slice(0, parametros.bits_datos ?? bitsDatos.join("").length), detalle };
   }
 }
