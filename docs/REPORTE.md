@@ -1,7 +1,7 @@
 # Nombres y carnés
 
 - Jorge Luis Felipe Aguilar Portillo — 23195
-- Estaban Enrique Carcamo Urizar — 23007
+- Esteban Enrique Carcamo Urizar — 23016
 
 # Título
 
