@@ -1,0 +1,117 @@
+"""Pruebas de la carga de configuracion y de la topologia que se entrega."""
+
+import json
+from pathlib import Path
+
+import pytest
+
+import configuracion
+
+RAIZ = Path(__file__).resolve().parent.parent
+TOPOLOGIA = RAIZ / "config" / "topologia.json"
+NOMBRES = RAIZ / "config" / "nombres.json"
+
+# Los once enlaces de la seccion 6 de la definicion grupal.
+COSTOS_ACORDADOS = {
+    ("A", "B"): 7,
+    ("A", "C"): 7,
+    ("A", "I"): 1,
+    ("B", "F"): 2,
+    ("C", "D"): 5,
+    ("D", "E"): 1,
+    ("D", "F"): 1,
+    ("D", "I"): 6,
+    ("E", "G"): 4,
+    ("F", "G"): 3,
+    ("F", "H"): 4,
+}
+
+
+def test_la_topologia_entregada_es_la_acordada():
+    """Si esto falla, la red deja de interoperar con las otras dos parejas."""
+    topologia = json.loads(TOPOLOGIA.read_text(encoding="utf-8"))
+
+    enlaces = {
+        (min(nodo, vecino), max(nodo, vecino)): costo
+        for nodo, adyacentes in topologia.items()
+        for vecino, costo in adyacentes.items()
+    }
+    assert enlaces == COSTOS_ACORDADOS
+    assert sorted(topologia) == list("ABCDEFGHI")
+
+
+def test_cada_nodo_carga_su_propia_vista():
+    config = configuracion.cargar("A", TOPOLOGIA, NOMBRES)
+    assert config.vecinos == {"B": 7, "C": 7, "I": 1}
+    assert config.direccion_propia.puerto == 5001
+    assert config.host is not None and config.host.tipo == "atm"
+
+
+def test_un_nodo_sin_host_no_tiene_terminal_colgado():
+    assert configuracion.cargar("B", TOPOLOGIA, NOMBRES).host is None
+
+
+def test_todos_los_nodos_de_la_topologia_arrancan():
+    for identificador in "ABCDEFGHI":
+        config = configuracion.cargar(identificador, TOPOLOGIA, NOMBRES)
+        assert config.identificador == identificador
+        assert config.vecinos
+
+
+def _escribir(directorio: Path, topologia: dict, nombres: dict) -> tuple[Path, Path]:
+    ruta_topologia = directorio / "topologia.json"
+    ruta_nombres = directorio / "nombres.json"
+    ruta_topologia.write_text(json.dumps(topologia), encoding="utf-8")
+    ruta_nombres.write_text(json.dumps(nombres), encoding="utf-8")
+    return ruta_topologia, ruta_nombres
+
+
+def test_rechaza_un_enlace_con_costos_distintos_en_cada_extremo(tmp_path):
+    """Un grafo asimetrico daria rutas validas en un solo sentido."""
+    rutas = _escribir(
+        tmp_path,
+        {"A": {"B": 7}, "B": {"A": 9}},
+        {"A": {"ip": "127.0.0.1", "puerto": 5001}, "B": {"ip": "127.0.0.1", "puerto": 5002}},
+    )
+    with pytest.raises(configuracion.ErrorConfiguracion, match="costos distintos"):
+        configuracion.cargar("A", *rutas)
+
+
+def test_rechaza_un_enlace_declarado_de_un_solo_lado(tmp_path):
+    rutas = _escribir(
+        tmp_path,
+        {"A": {"B": 7}, "B": {}},
+        {"A": {"ip": "127.0.0.1", "puerto": 5001}, "B": {"ip": "127.0.0.1", "puerto": 5002}},
+    )
+    with pytest.raises(configuracion.ErrorConfiguracion, match="no declara de vuelta"):
+        configuracion.cargar("A", *rutas)
+
+
+def test_rechaza_un_vecino_sin_direccion(tmp_path):
+    rutas = _escribir(
+        tmp_path,
+        {"A": {"B": 7}, "B": {"A": 7}},
+        {"A": {"ip": "127.0.0.1", "puerto": 5001}},
+    )
+    with pytest.raises(configuracion.ErrorConfiguracion, match="no hay direccion"):
+        configuracion.cargar("A", *rutas)
+
+
+def test_rechaza_un_nodo_que_no_esta_en_la_topologia(tmp_path):
+    rutas = _escribir(
+        tmp_path,
+        {"A": {"B": 7}, "B": {"A": 7}},
+        {"A": {"ip": "127.0.0.1", "puerto": 5001}, "B": {"ip": "127.0.0.1", "puerto": 5002}},
+    )
+    with pytest.raises(configuracion.ErrorConfiguracion, match="no aparece en la topologia"):
+        configuracion.cargar("Z", *rutas)
+
+
+def test_rechaza_un_puerto_invalido(tmp_path):
+    rutas = _escribir(
+        tmp_path,
+        {"A": {"B": 7}, "B": {"A": 7}},
+        {"A": {"ip": "127.0.0.1", "puerto": 99999}, "B": {"ip": "127.0.0.1", "puerto": 5002}},
+    )
+    with pytest.raises(configuracion.ErrorConfiguracion, match="puerto valido"):
+        configuracion.cargar("A", *rutas)

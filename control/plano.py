@@ -14,12 +14,13 @@ Reparte el trabajo en tres temporizadores independientes:
 
 import threading
 import time
+from pathlib import Path
 from typing import Callable
 
 import bitacora
 from configuracion import Configuracion
 from control.lsdb import BaseEstadoEnlaces
-from control.secuencia import Secuencia
+from control.secuencia import DIRECTORIO_ESTADO, Secuencia
 from control.vecinos import GestorVecinos
 from protocolo import mensajes
 from protocolo.constantes import (
@@ -45,6 +46,7 @@ class PlanoControl:
         configuracion: Configuracion,
         enlaces: Enlaces,
         al_cambiar_grafo: AlCambiarGrafo | None = None,
+        directorio_estado: Path | str = DIRECTORIO_ESTADO,
     ):
         self._configuracion = configuracion
         self._identificador = configuracion.identificador
@@ -53,7 +55,7 @@ class PlanoControl:
 
         self.vecinos = GestorVecinos(configuracion.vecinos)
         self.lsdb = BaseEstadoEnlaces()
-        self.secuencia = Secuencia(self._identificador)
+        self.secuencia = Secuencia(self._identificador, directorio_estado)
 
         self._detener = threading.Event()
         self._arrancado = threading.Event()
