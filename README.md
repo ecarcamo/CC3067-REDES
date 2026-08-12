@@ -46,6 +46,17 @@ make topologia
 tail -f bitacoras/A.log
 ```
 
+Con la topología convergida, el banco y el ATM se ejecutan en terminales
+separadas:
+
+```bash
+make banco             # servidor conectado al router E
+make atm               # cajero conectado al router A
+```
+
+La cuenta de demostración es `23016`, PIN `123456789`, con saldo inicial de
+`$400.00`.
+
 Opciones de `nodo.py`:
 
 | Opción | Para qué sirve |
@@ -121,13 +132,11 @@ make pruebas      # o: python3 -m pytest -q
 
 ## Estado
 
-La **primera mitad** está implementada y probada: configuración, Hamming(7,4),
-formato de mensajes, capa de sockets y el plano de control completo (HELLO,
-detección de caídas, LSDB, flooding y construcción del grafo). Levantando los
-nueve nodos, todos convergen al mismo grafo de once enlaces, y al tumbar uno sus
-vecinos emiten un LSA sin ese enlace y la red reconverge.
+La implementación está completa: configuración, Hamming(7,4), transporte,
+plano de control Link State, Dijkstra con desempate estable, tablas CSV
+atómicas, forwarding con TTL y detección de bucles, ATM y servidor bancario.
 
-Queda pendiente la **segunda mitad**: el cálculo de rutas con Dijkstra, la
-escritura y lectura de `<nodo>_tabla_enrutamiento.csv`, el plano de datos y los
-dos equipos terminales. Las interfaces ya están fijadas y documentadas en
-`control/dijkstra.py`, `control/tabla.py`, `datos/reenvio.py` y `endpoints/`.
+Las pruebas unitarias cubren los dos planos y una corrida local con los nueve
+nodos verificó autenticación, retiro y cierre de sesión por la ruta óptima
+**A→I→D→E**, con respuesta **E→D→I→A**. La evidencia y discusión están en
+[`docs/RESULTADOS_Y_DISCUSION.md`](docs/RESULTADOS_Y_DISCUSION.md).

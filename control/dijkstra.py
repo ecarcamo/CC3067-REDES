@@ -1,7 +1,5 @@
 """Calculo de las rutas mas cortas sobre el grafo aprendido por LSA.
 
-PENDIENTE — FASE 2 (Felipe).
-
 Entra el grafo que arma `control.lsdb.BaseEstadoEnlaces.grafo()`, que es un
 diccionario no dirigido `{nodo: {vecino: costo}}` con los enlaces que ambos
 extremos anuncian, y sale una ruta por cada destino alcanzable.
@@ -21,6 +19,7 @@ Detalles a respetar:
   misma decision y la ruta sea estable entre ejecuciones.
 """
 
+import heapq
 from dataclasses import dataclass
 
 
@@ -41,4 +40,24 @@ def calcular(grafo: dict[str, dict[str, int]], origen: str) -> dict[str, Ruta]:
     origen, su primer salto es el vecino mismo; en cualquier otro caso se hereda
     el primer salto del nodo desde el que se llego.
     """
-    raise NotImplementedError("Fase 2: implementar Dijkstra sobre el grafo de la LSDB")
+    mejores: dict[str, tuple[float, str]] = {origen: (0, origen)}
+    pendientes: list[tuple[float, str, str]] = [(0, origen, origen)]
+
+    while pendientes:
+        costo, primer_salto, nodo = heapq.heappop(pendientes)
+        if mejores.get(nodo) != (costo, primer_salto):
+            continue
+
+        for vecino, costo_enlace in grafo.get(nodo, {}).items():
+            if vecino == origen:
+                continue
+            siguiente = vecino if nodo == origen else primer_salto
+            candidato = (costo + costo_enlace, siguiente)
+            if vecino not in mejores or candidato < mejores[vecino]:
+                mejores[vecino] = candidato
+                heapq.heappush(pendientes, (*candidato, vecino))
+
+    return {
+        destino: Ruta(destino=destino, costo=costo, siguiente_salto=siguiente)
+        for destino, (costo, siguiente) in mejores.items()
+    }

@@ -45,7 +45,6 @@ class Nodo:
         self._datos = PlanoDatos(config, self._enlaces)
         self._control = PlanoControl(config, self._enlaces, al_cambiar_grafo=self._recalcular_tabla)
         self._servidor = Servidor(config.direccion_propia, self._despachar)
-        self._aviso_pendiente = False
 
     def iniciar(self) -> None:
         self._servidor.iniciar()
@@ -77,19 +76,10 @@ class Nodo:
     def _recalcular_tabla(self, grafo: dict[str, dict[str, int]]) -> None:
         """Corre el calculo de rutas y deja la tabla lista para el plano de datos."""
         self._log.info("grafo conocido: %s", _resumir(grafo))
-        try:
-            rutas = dijkstra.calcular(grafo, self._config.identificador)
-            archivo = tabla.escribir(
-                self._config.identificador, rutas, self._config.direcciones
-            )
-        except NotImplementedError:
-            if not self._aviso_pendiente:
-                self._aviso_pendiente = True
-                self._log.warning(
-                    "el calculo de rutas y la tabla CSV son de la fase 2; "
-                    "el plano de control sigue construyendo el grafo"
-                )
-            return
+        rutas = dijkstra.calcular(grafo, self._config.identificador)
+        archivo = tabla.escribir(
+            self._config.identificador, rutas, self._config.direcciones
+        )
         self._log.info("tabla escrita en %s con %s destinos", archivo, len(rutas))
 
 

@@ -31,8 +31,12 @@ class Enlaces:
 
     def registrar(self, nombre: str, direccion: Direccion) -> None:
         """Agrega un destino que no venia en la configuracion inicial."""
-        with self._candado_maestro:
-            self._direcciones[nombre] = direccion
+        with self._candado_de(nombre):
+            anterior = self._direcciones.get(nombre)
+            with self._candado_maestro:
+                self._direcciones[nombre] = direccion
+            if anterior is not None and anterior != direccion:
+                self._descartar(nombre)
 
     def enviar(self, destino: str, datos: bytes) -> bool:
         """Envia los bytes ya serializados. Devuelve False si el destino no responde.
@@ -41,12 +45,11 @@ class Enlaces:
         error del programa: el plano de control se entera por el vencimiento del
         HELLO y reacciona anunciando un LSA sin ese enlace.
         """
-        direccion = self._direcciones.get(destino)
-        if direccion is None:
-            _log.warning("no hay direccion registrada para %s", destino)
-            return False
-
         with self._candado_de(destino):
+            direccion = self._direcciones.get(destino)
+            if direccion is None:
+                _log.warning("no hay direccion registrada para %s", destino)
+                return False
             for reintento in (False, True):
                 conexion = self._conexiones.get(destino)
                 if conexion is None:

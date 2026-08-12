@@ -1,7 +1,5 @@
 """Plano de datos: reenvio de los mensajes entre el ATM y el servidor bancario.
 
-PENDIENTE — FASE 2 (Felipe).
-
 El enunciado describe el ciclo completo de un mensaje que atraviesa un router, y
 es exactamente lo que toca implementar en `manejar_trama`:
 
@@ -32,7 +30,9 @@ Reglas del protocolo que hay que hacer cumplir:
 """
 
 import bitacora
-from configuracion import Configuracion
+from configuracion import Configuracion, Direccion
+from control import tabla
+from protocolo import mensajes
 from transporte.enlaces import Enlaces
 
 _log = bitacora.obtener("datos")
@@ -52,7 +52,16 @@ class PlanoDatos:
 
     def manejar_trama(self, linea: str, ip_origen: str) -> None:
         """Punto de entrada del plano de datos: una linea de bits recibida."""
-        raise NotImplementedError("Fase 2: implementar el reenvio del plano de datos")
+        try:
+            sobre, correcciones = mensajes.deserializar_datos(linea)
+            mensajes.validar_sobre(sobre)
+        except ValueError as error:
+            _log.warning("trama invalida desde %s: %s", ip_origen, error)
+            return
+
+        if correcciones:
+            _log.info("Hamming corrigio %s bit(s) en una trama de %s", correcciones, ip_origen)
+        self._encaminar(sobre)
 
     def enviar(self, sobre: dict) -> bool:
         """Inyecta un sobre nuevo en la red, consultando la tabla como uno recibido.
@@ -60,4 +69,62 @@ class PlanoDatos:
         La usa el router cuando su host local (el ATM o el banco) le entrega un
         mensaje para que lo curse hacia el otro extremo.
         """
-        raise NotImplementedError("Fase 2: implementar la inyeccion de sobres a la red")
+        try:
+            mensajes.validar_sobre(sobre)
+        except ValueError as error:
+            _log.warning("sobre local invalido: %s", error)
+            return False
+        return self._encaminar(sobre)
+
+    def _encaminar(self, sobre: dict) -> bool:
+        """Aplica TTL/bucles y entrega una copia al siguiente destino."""
+        saltos = list(sobre.get("hops", []))
+        es_inyeccion_local = saltos == [self._identificador] and sobre["from"] == self._identificador
+        if self._identificador in saltos and not es_inyeccion_local:
+            _log.warning("bucle detectado en %s, se descarta", saltos)
+            return False
+
+        if sobre["ttl"] <= 0:
+            _log.warning("ttl agotado hacia %s, se descarta", sobre["to"])
+            return False
+
+        if sobre["to"] == self._identificador:
+            if self._configuracion.host is None:
+                _log.warning("mensaje para %s sin host local, se descarta", self._identificador)
+                return False
+            enviado = self._enlaces.enviar(CLAVE_HOST_LOCAL, mensajes.serializar_datos(sobre))
+            if enviado:
+                _log.info(
+                    "mensaje entregado al host local; ruta=%s",
+                    saltos if saltos[-1:] == [self._identificador] else saltos + [self._identificador],
+                )
+            return enviado
+
+        ttl = sobre["ttl"] - 1
+        if ttl <= 0:
+            _log.warning("ttl agotado hacia %s, se descarta", sobre["to"])
+            return False
+
+        if not es_inyeccion_local:
+            saltos.append(self._identificador)
+        reenviado = dict(sobre, ttl=ttl, hops=saltos)
+
+        entrada = tabla.cargar(self._identificador).get(sobre["to"])
+        if entrada is None:
+            _log.warning("no hay ruta desde %s hacia %s", self._identificador, sobre["to"])
+            return False
+
+        self._enlaces.registrar(
+            entrada.siguiente_salto, Direccion(entrada.ip, entrada.puerto)
+        )
+        enviado = self._enlaces.enviar(
+            entrada.siguiente_salto, mensajes.serializar_datos(reenviado)
+        )
+        if enviado:
+            _log.info(
+                "mensaje hacia %s reenviado por %s; ruta=%s",
+                sobre["to"],
+                entrada.siguiente_salto,
+                saltos,
+            )
+        return enviado

@@ -111,9 +111,12 @@ Los `payload` acordados son `auth` (usuario y pin), `withdraw` (monto), `logout`
 y `error` (código y mensaje). La operación va en `op` para no chocar con el
 `type` del sobre.
 
-**Pendiente de acordar con las otras dos parejas:** la definición grupal solo
-fija los `payload` de ida. Falta el formato de las respuestas del banco hacia el
-ATM.
+**Decisión pendiente de homologar con las otras dos parejas.** Las respuestas
+exitosas conservan el `op` solicitado, incluyen `ok: true`, un mensaje y los
+datos pertinentes (`amount` y `balance` para un retiro). Las respuestas
+fallidas usan el `payload_error` acordado. Este formato no altera el sobre ni el
+reenvío, pero debe unificarse antes de probar endpoints de implementaciones
+distintas.
 
 ### Qué son `from` y `to`
 

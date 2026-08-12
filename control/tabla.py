@@ -1,7 +1,5 @@
 """Escritura y lectura de `<nodo>_tabla_enrutamiento.csv`.
 
-PENDIENTE — FASE 2 (Felipe).
-
 Este archivo es la frontera entre los dos planos: el de control lo escribe cada
 vez que el grafo cambia y el de datos lo consulta para cada mensaje que reenvia.
 El enunciado pide expresamente que de aqui salgan la IP y el puerto del
@@ -19,6 +17,8 @@ esa direccion a la que se abre el socket. La fila del propio nodo se escribe con
 costo 0 y siguiente salto igual a si mismo.
 """
 
+import csv
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -56,7 +56,33 @@ def escribir(
     escribir. Un destino cuyo siguiente salto no tenga direccion conocida se
     omite, porque una fila sin ip ni puerto no sirve para reenviar.
     """
-    raise NotImplementedError("Fase 2: escribir la tabla de enrutamiento en CSV")
+    archivo = ruta_archivo(identificador)
+    temporal = archivo.with_name(f".{archivo.name}.tmp")
+
+    try:
+        with temporal.open("w", encoding="utf-8", newline="") as salida:
+            escritor = csv.DictWriter(salida, fieldnames=COLUMNAS)
+            escritor.writeheader()
+            for destino in sorted(rutas):
+                ruta = rutas[destino]
+                direccion = direcciones.get(ruta.siguiente_salto)
+                if direccion is None:
+                    continue
+                escritor.writerow(
+                    {
+                        "destino": ruta.destino,
+                        "siguiente_salto": ruta.siguiente_salto,
+                        "costo": ruta.costo,
+                        "ip": direccion.ip,
+                        "puerto": direccion.puerto,
+                    }
+                )
+            salida.flush()
+            os.fsync(salida.fileno())
+        temporal.replace(archivo)
+    finally:
+        temporal.unlink(missing_ok=True)
+    return archivo
 
 
 def cargar(identificador: str) -> dict[str, EntradaTabla]:
@@ -65,4 +91,21 @@ def cargar(identificador: str) -> dict[str, EntradaTabla]:
     Si el archivo todavia no existe se devuelve un diccionario vacio: significa
     que el plano de control aun no converge y el mensaje no se puede rutear.
     """
-    raise NotImplementedError("Fase 2: leer la tabla de enrutamiento desde el CSV")
+    archivo = ruta_archivo(identificador)
+    if not archivo.exists():
+        return {}
+
+    with archivo.open(encoding="utf-8", newline="") as entrada:
+        lector = csv.DictReader(entrada)
+        if tuple(lector.fieldnames or ()) != COLUMNAS:
+            raise ValueError(f"encabezado invalido en {archivo}")
+        return {
+            fila["destino"]: EntradaTabla(
+                destino=fila["destino"],
+                siguiente_salto=fila["siguiente_salto"],
+                costo=float(fila["costo"]),
+                ip=fila["ip"],
+                puerto=int(fila["puerto"]),
+            )
+            for fila in lector
+        }
