@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Artefactos que cada nodo genera en tiempo de ejecucion
+estado/
+*_tabla_enrutamiento.csv
+
+# Reparto interno de trabajo, no forma parte de la entrega
+INSTRUCCIONES_FELIPE.md
