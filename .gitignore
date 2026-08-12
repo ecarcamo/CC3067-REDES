@@ -6,6 +6,7 @@ venv/
 
 # Artefactos que cada nodo genera en tiempo de ejecucion
 estado/
+bitacoras/
 *_tabla_enrutamiento.csv
 
 # Reparto interno de trabajo, no forma parte de la entrega
