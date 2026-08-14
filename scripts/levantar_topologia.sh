@@ -4,10 +4,17 @@
 #   bash scripts/levantar_topologia.sh           # los nueve nodos
 #   bash scripts/levantar_topologia.sh A I D     # solo algunos
 #
+# Usa config/nombres.local.json (todo en 127.0.0.1), porque los nueve nodos
+# corren aqui. Para otro archivo de direcciones:
+#
+#   NOMBRES=config/nombres.json bash scripts/levantar_topologia.sh F G H
+#
 # Se detiene todo con Ctrl+C.
 
 set -uo pipefail
 cd "$(dirname "$0")/.."
+
+NOMBRES="${NOMBRES:-config/nombres.local.json}"
 
 NODOS=("$@")
 if [ ${#NODOS[@]} -eq 0 ]; then
@@ -29,7 +36,7 @@ detener() {
 trap detener INT TERM
 
 for id in "${NODOS[@]}"; do
-  python3 nodo.py --id "$id" > "bitacoras/$id.log" 2>&1 &
+  python3 nodo.py --id "$id" --nombres "$NOMBRES" > "bitacoras/$id.log" 2>&1 &
   PIDS+=("$!")
   echo "nodo $id levantado (pid $!) -> bitacoras/$id.log"
 done

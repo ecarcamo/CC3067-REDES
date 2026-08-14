@@ -43,7 +43,7 @@ def test_la_topologia_entregada_es_la_acordada():
 def test_cada_nodo_carga_su_propia_vista():
     config = configuracion.cargar("A", TOPOLOGIA, NOMBRES)
     assert config.vecinos == {"B": 7, "C": 7, "I": 1}
-    assert config.direccion_propia.puerto == 5001
+    assert config.direccion_propia.puerto == 6001
     assert config.host is not None and config.host.tipo == "atm"
 
 
@@ -115,3 +115,30 @@ def test_rechaza_un_puerto_invalido(tmp_path):
     )
     with pytest.raises(configuracion.ErrorConfiguracion, match="puerto valido"):
         configuracion.cargar("A", *rutas)
+
+
+def test_con_host_cuelga_un_equipo_terminal_sin_editar_el_archivo():
+    """El rol de ATM o banco se decide al levantar el nodo, no en nombres.json."""
+    config = configuracion.cargar("H", TOPOLOGIA, NOMBRES)
+    assert config.host is None
+
+    con_cajero = configuracion.con_host(config, "atm", 7003)
+    assert con_cajero.host == configuracion.HostLocal(
+        tipo="atm", ip=config.direccion_propia.ip, puerto=7003
+    )
+    # El resto de la vista del nodo no se toca.
+    assert con_cajero.vecinos == config.vecinos
+    assert con_cajero.direcciones == config.direcciones
+
+
+def test_con_host_acepta_un_equipo_en_otra_maquina():
+    config = configuracion.cargar("H", TOPOLOGIA, NOMBRES)
+    con_banco = configuracion.con_host(config, "banco", 7004, "100.64.0.9")
+    assert con_banco.host.ip == "100.64.0.9"
+    assert con_banco.host.tipo == "banco"
+
+
+def test_con_host_rechaza_un_puerto_invalido():
+    config = configuracion.cargar("H", TOPOLOGIA, NOMBRES)
+    with pytest.raises(configuracion.ErrorConfiguracion, match="puerto valido"):
+        configuracion.con_host(config, "atm", 0)

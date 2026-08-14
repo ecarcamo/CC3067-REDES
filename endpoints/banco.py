@@ -127,6 +127,12 @@ def main(argv: list[str] | None = None) -> int:
     analizador.add_argument("--gateway", default="E", help="router conectado al banco")
     analizador.add_argument("--topologia", default=str(configuracion.RUTA_TOPOLOGIA))
     analizador.add_argument("--nombres", default=str(configuracion.RUTA_NOMBRES))
+    analizador.add_argument(
+        "--host-puerto",
+        type=int,
+        help="puerto del banco, si no viene declarado en nombres.json",
+    )
+    analizador.add_argument("--host-ip", help="ip del banco (por defecto, la del gateway)")
     argumentos = analizador.parse_args(argv)
     bitacora.configurar("BANCO")
 
@@ -134,6 +140,10 @@ def main(argv: list[str] | None = None) -> int:
         config = configuracion.cargar(
             argumentos.gateway, argumentos.topologia, argumentos.nombres
         )
+        if argumentos.host_puerto:
+            config = configuracion.con_host(
+                config, "banco", argumentos.host_puerto, argumentos.host_ip
+            )
         banco = Banco(config)
         banco.iniciar()
     except (configuracion.ErrorConfiguracion, OSError) as error:

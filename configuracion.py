@@ -10,7 +10,7 @@ tal como quedo acordado en la definicion grupal.
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 RUTA_TOPOLOGIA = Path("config/topologia.json")
@@ -96,6 +96,24 @@ def cargar(
         topologia=topologia,
         host=_leer_host(nombres[identificador].get("host")),
     )
+
+
+def con_host(
+    config: Configuracion, tipo: str, puerto: int, ip: str | None = None
+) -> Configuracion:
+    """Declara el equipo terminal desde la linea de comandos, sin tocar el archivo.
+
+    `config/nombres.json` es el acuerdo compartido con las otras parejas, asi que
+    conviene no editarlo para mover el ATM o el banco a otro router: basta con
+    levantar ese router y su equipo terminal con las mismas opciones.
+
+    Sin `ip` el equipo se asume en la misma maquina que su puerta de enlace, que
+    es como corren el cajero y el servidor en la topologia acordada.
+    """
+    host = _leer_host(
+        {"tipo": tipo, "ip": ip or config.direccion_propia.ip, "puerto": puerto}
+    )
+    return replace(config, host=host)
 
 
 def _leer_json(ruta: Path) -> dict:

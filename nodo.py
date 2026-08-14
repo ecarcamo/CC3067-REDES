@@ -103,13 +103,28 @@ def main(argv: list[str] | None = None) -> int:
     analizador.add_argument(
         "--detallado", action="store_true", help="bitacora con el detalle de cada mensaje"
     )
+    analizador.add_argument(
+        "--host-tipo",
+        choices=("atm", "banco"),
+        help="cuelga un equipo terminal de este router sin editar nombres.json",
+    )
+    analizador.add_argument("--host-puerto", type=int, help="puerto donde escucha ese equipo")
+    analizador.add_argument("--host-ip", help="ip del equipo (por defecto, la del nodo)")
     argumentos = analizador.parse_args(argv)
+
+    if bool(argumentos.host_tipo) != bool(argumentos.host_puerto):
+        print("--host-tipo y --host-puerto se usan juntos", file=sys.stderr)
+        return 1
 
     bitacora.configurar(argumentos.id, argumentos.detallado)
     log = bitacora.obtener("nodo")
 
     try:
         config = configuracion.cargar(argumentos.id, argumentos.topologia, argumentos.nombres)
+        if argumentos.host_tipo:
+            config = configuracion.con_host(
+                config, argumentos.host_tipo, argumentos.host_puerto, argumentos.host_ip
+            )
     except ErrorConfiguracion as error:
         print(f"Error de configuracion: {error}", file=sys.stderr)
         return 1
