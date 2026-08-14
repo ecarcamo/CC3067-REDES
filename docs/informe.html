@@ -1,0 +1,402 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>Laboratorio 3 - Protocolos de Enrutamiento</title>
+<style>
+@page { margin: 2.5cm; }
+body { font-family: "Times New Roman", serif; font-size: 12pt; color: #000000; text-align: justify; }
+h1 { font-family: "Times New Roman", serif; font-size: 16pt; color: #000000; text-align: center; font-weight: bold; }
+h2 { font-family: "Times New Roman", serif; font-size: 14pt; color: #000000; text-align: left; font-weight: bold; }
+h3 { font-family: "Times New Roman", serif; font-size: 12pt; color: #000000; text-align: left; font-weight: bold; }
+p, li, td, th { font-family: "Times New Roman", serif; font-size: 12pt; color: #000000; }
+table { border-collapse: collapse; width: 100%; }
+td, th { border: 1px solid #000000; padding: 4px 8px; }
+th { font-weight: bold; }
+pre { font-family: "Courier New", monospace; font-size: 10pt; color: #000000; }
+.centro { text-align: center; }
+.encabezado { text-align: center; font-size: 12pt; color: #000000; }
+</style>
+</head>
+<body>
+
+<p class="encabezado">Universidad del Valle de Guatemala<br>
+Facultad de Ingenier&iacute;a<br>
+Departamento de Ciencias de la Computaci&oacute;n<br>
+CC3067 Redes</p>
+
+<h1>Laboratorio 3: Protocolos de Enrutamiento</h1>
+
+<p class="encabezado">Esteban C&aacute;rcamo (23016)<br>
+Jorge Luis Felipe Aguilar (23195)<br>
+13 de agosto de 2026</p>
+
+<h2>1. Descripci&oacute;n de la pr&aacute;ctica</h2>
+
+<p>La pr&aacute;ctica consisti&oacute; en implementar el protocolo de enrutamiento
+<b>Link State</b> sobre una red simulada de nueve nodos que se comunican mediante
+sockets TCP. Cada nodo es un proceso independiente que arranca conociendo
+&uacute;nicamente a sus vecinos directos y el costo de cada enlace; el resto de la
+topolog&iacute;a lo descubre intercambiando mensajes con la red.</p>
+
+<p>El trabajo se dividi&oacute; en dos planos que corren en paralelo dentro de cada
+nodo. El <b>plano de control</b> descubre vecinos con paquetes HELLO, construye el
+anuncio de estado de enlace (LSA), lo propaga por inundaci&oacute;n, arma el grafo
+completo de la red y calcula las rutas m&aacute;s cortas con el algoritmo de
+Dijkstra, dejando el resultado en un archivo
+<i>nodo_tabla_enrutamiento.csv</i>. El <b>plano de datos</b> consulta esa tabla
+para reenviar los mensajes de aplicaci&oacute;n salto por salto, aplicando
+detecci&oacute;n y correcci&oacute;n de errores con c&oacute;digo Hamming(7,4).</p>
+
+<p>Sobre esa red viaja el tr&aacute;fico entre dos equipos terminales que no son
+routers: un cajero autom&aacute;tico (ATM) y un servidor bancario, cada uno
+conectado a su router de puerta de enlace predeterminada. La topolog&iacute;a y el
+formato de los mensajes se acordaron con las otras dos parejas del grupo para
+garantizar interoperabilidad entre las tres implementaciones, y las pruebas de
+interconexi&oacute;n se realizaron sobre la red privada virtual Tailscale.</p>
+
+<h2>2. Descripci&oacute;n de los algoritmos utilizados y su implementaci&oacute;n</h2>
+
+<h3>2.1 Arquitectura general</h3>
+
+<p>Cada nodo escucha en un &uacute;nico puerto TCP. Al recibir una l&iacute;nea, el
+despachador la clasifica por contenido: si comienza con <i>{</i> es un mensaje de
+control en JSON, y si contiene solo los caracteres <i>0</i> y <i>1</i> es una trama
+Hamming del plano de datos. Ambas formas son excluyentes, de modo que la regla no
+presenta casos ambiguos. Los dos planos se ejecutan en hilos independientes y su
+&uacute;nico punto de contacto es el archivo CSV de la tabla de enrutamiento: el
+plano de control lo escribe y el plano de datos lo lee.</p>
+
+<h3>2.2 Descubrimiento de vecinos: HELLO</h3>
+
+<p>Cada nodo env&iacute;a un paquete HELLO cada 5 segundos a todos sus vecinos
+configurados, est&eacute;n activos o no, ya que ese es el mecanismo por el cual se
+descubren mutuamente. Un vecino se declara ca&iacute;do tras 15 segundos sin
+recibir su HELLO, y en ese instante el nodo emite un LSA propio con el
+n&uacute;mero de secuencia incrementado y sin ese enlace. El HELLO lleva
+<i>ttl = 1</i> porque nace y muere en el enlace: nunca se reenv&iacute;a. El costo
+del enlace no se mide, se lee de la topolog&iacute;a compartida y es
+sim&eacute;trico.</p>
+
+<h3>2.3 Anuncio de estado de enlace: LSA</h3>
+
+<p>El LSA contiene exclusivamente los enlaces directos activos del nodo que lo
+origina, nunca rutas calculadas. Su estructura es la siguiente:</p>
+
+<pre>{ "proto": "LinkState", "type": "LSA", "origin": "A", "seq": 3,
+  "links": { "B": 7, "I": 1, "C": 7 }, "from": "A", "ttl": 8 }</pre>
+
+<p>El campo <i>origin</i> identifica al due&ntilde;o del anuncio y no cambia nunca;
+<i>from</i> indica el vecino que lo reenvi&oacute; y se modifica en cada salto. El
+n&uacute;mero de secuencia <i>seq</i> permite distinguir anuncios nuevos de
+anuncios viejos y se persiste en disco, de manera que un nodo que reinicia no
+vuelve a numerar desde cero. Si aun as&iacute; la red recuerda un LSA propio con
+secuencia mayor, el contador la supera y se reanuncia de inmediato.</p>
+
+<p>Se emite un LSA al arrancar, cuando aparece un vecino nuevo, cuando se cae un
+vecino y cada 30 segundos como refresco peri&oacute;dico. Este refresco permite que
+un nodo que se incorpora tarde complete su grafo sin depender de un cambio de
+topolog&iacute;a.</p>
+
+<h3>2.4 Inundaci&oacute;n controlada (flooding)</h3>
+
+<p>Al recibir un LSA ajeno, el nodo aplica tres reglas en orden. Primero, si el
+n&uacute;mero de secuencia es menor o igual al mayor visto para ese origen, el
+anuncio se descarta sin reenviar; aqu&iacute; es donde muere el ciclo y donde se
+evita la tormenta de difusi&oacute;n. Segundo, si es mayor, se almacena en la base
+de datos de estado de enlaces y se reenv&iacute;a a todos los vecinos activos
+excepto a aquel que lo envi&oacute;, t&eacute;cnica conocida como <i>split
+horizon</i>. Tercero, antes de reenviar se decrementa el <i>ttl</i>, que inicia en
+8, y el paquete se descarta al llegar a cero; esto act&uacute;a como respaldo ante
+un nodo que reinicie con una secuencia baja.</p>
+
+<p>Como optimizaci&oacute;n de convergencia, cuando llega el primer HELLO de un
+vecino se le env&iacute;an de inmediato todos los anuncios almacenados. Son LSA
+normales, por lo que cualquier implementaci&oacute;n del grupo los procesa sin
+cambios, pero reducen sustancialmente el tiempo de convergencia.</p>
+
+<h3>2.5 Construcci&oacute;n del grafo</h3>
+
+<p>Un enlace ingresa al grafo &uacute;nicamente si <b>ambos extremos lo
+anuncian</b>. Esta decisi&oacute;n resuelve un problema concreto: el protocolo
+acordado no define envejecimiento de los LSA, por lo que el anuncio de un nodo
+ca&iacute;do permanecer&iacute;a almacenado indefinidamente en los dem&aacute;s.
+Al exigir reciprocidad, los vecinos activos del nodo ca&iacute;do lo desconectan
+mediante su propio LSA actualizado y el nodo muerto queda fuera de todo camino sin
+necesidad de un mecanismo de expiraci&oacute;n. Cuando los costos anunciados por
+cada extremo difieren, se toma el mayor por ser la lectura conservadora.</p>
+
+<h3>2.6 C&aacute;lculo de rutas: Dijkstra</h3>
+
+<p>Cada vez que el grafo conocido cambia, se ejecuta el algoritmo de Dijkstra desde
+el nodo local. El resultado no es la ruta completa sino, para cada destino
+alcanzable, el <b>primer salto</b> y el costo acumulado. Los destinos inalcanzables
+simplemente no aparecen en la tabla. El desempate entre rutas de igual costo es
+estable y determinista, lo que garantiza que dos ejecuciones con el mismo grafo
+produzcan tablas id&eacute;nticas.</p>
+
+<p>La tabla se escribe de forma at&oacute;mica en <i>nodo_tabla_enrutamiento.csv</i>
+con el formato acordado:</p>
+
+<pre>destino,siguiente_salto,costo,ip,puerto</pre>
+
+<p>Es importante notar que los campos <i>ip</i> y <i>puerto</i> corresponden al
+<b>siguiente salto</b> y no al destino final, ya que es a esa direcci&oacute;n a la
+que el plano de datos abre el socket.</p>
+
+<h3>2.7 Plano de datos y arquitectura de capas</h3>
+
+<p>El reenv&iacute;o implementa el ciclo completo descrito en el enunciado: se
+recibe una cadena de bits, se detectan y corrigen errores sobre todos los bits, se
+extraen los bits de datos, se deserializa y se lee el destino, se consulta la tabla
+de ruteo, se abre la conexi&oacute;n seg&uacute;n la IP y el puerto devueltos, se
+serializa nuevamente, se aplica Hamming(7,4) y se env&iacute;an los bits por el
+socket.</p>
+
+<p>El sobre de datos tiene la siguiente estructura:</p>
+
+<pre>{ "type": "message", "from": "A", "to": "E", "ttl": 16,
+  "hops": ["A"], "payload": { "op": "withdraw", "amount": 500 } }</pre>
+
+<p>Los routers leen exclusivamente el campo <i>to</i>. El <i>payload</i> nunca se
+abre, pues corresponde al di&aacute;logo entre el ATM y el banco y ning&uacute;n
+nodo intermedio debe interpretarlo; esta es la separaci&oacute;n de capas que exige
+la pr&aacute;ctica. Antes de reenviar, el nodo se agrega a la lista <i>hops</i> y
+decrementa el <i>ttl</i>. El mensaje se descarta si el <i>ttl</i> llega a cero o si
+el nodo se encuentra a s&iacute; mismo en <i>hops</i>, lo que indicar&iacute;a un
+bucle de ruteo. Cuando <i>to</i> coincide con el nodo local, el mensaje no se
+reenv&iacute;a sino que se entrega al equipo terminal conectado a ese router.</p>
+
+<h3>2.8 Detecci&oacute;n y correcci&oacute;n de errores: Hamming(7,4)</h3>
+
+<p>El sobre serializado se convierte a bytes UTF-8 y cada byte se divide en dos
+nibbles, empezando por el m&aacute;s significativo. Cada nibble
+<i>d1 d2 d3 d4</i> produce un bloque de siete bits con el orden
+<i>p1 p2 d1 p3 d2 d3 d4</i> y paridad par:</p>
+
+<pre>p1 = d1 ^ d2 ^ d4        cubre las posiciones 1, 3, 5, 7
+p2 = d1 ^ d3 ^ d4        cubre las posiciones 2, 3, 6, 7
+p3 = d2 ^ d3 ^ d4        cubre las posiciones 4, 5, 6, 7</pre>
+
+<p>Resultan 14 bits exactos por byte, sin relleno ni metadatos, de modo que el
+receptor reconstruye el mensaje &uacute;nicamente a partir de la cadena de bits. Al
+decodificar, el s&iacute;ndrome indica la posici&oacute;n del bit a corregir, o cero
+si el bloque lleg&oacute; intacto. El c&oacute;digo corrige un bit por bloque de
+siete; con dos o m&aacute;s errores en el mismo bloque la correcci&oacute;n
+converge a un valor equivocado, situaci&oacute;n que se detecta al fallar la
+decodificaci&oacute;n UTF-8 o el an&aacute;lisis del JSON. Esta capa se aplica
+&uacute;nicamente al plano de datos; los mensajes de control viajan como JSON
+plano.</p>
+
+<h3>2.9 Equipos terminales</h3>
+
+<p>El ATM y el servidor bancario no son routers: no participan del plano de
+control, no poseen tabla de enrutamiento y no ejecutan Link State. Cada uno conoce
+&uacute;nicamente su puerta de enlace predeterminada, que es el router que lo
+declara como equipo terminal. Ambos escuchan adem&aacute;s en su propio puerto,
+porque la conexi&oacute;n de ida y la de retorno son independientes y cada extremo
+abre la suya para escribir. El rol de cada nodo puede declararse por l&iacute;nea de
+comandos, lo que permite reubicar el ATM o el banco en cualquier router sin
+modificar el archivo de direcciones compartido con las otras parejas.</p>
+
+<h2>3. Resultados</h2>
+
+<h3>3.1 Convergencia de la topolog&iacute;a</h3>
+
+<p>Se ejecutaron los nueve routers como procesos independientes sobre la
+topolog&iacute;a acordada de nueve nodos y once enlaces. La red conocida por cada
+nodo alcanz&oacute; los <b>9 nodos y 11 enlaces</b> en aproximadamente <b>7
+segundos</b> desde el arranque, con el grafo siguiente:</p>
+
+<pre>A-B=7  A-C=7  A-I=1  B-F=2  C-D=5  D-E=1
+D-F=1  D-I=6  E-G=4  F-G=3  F-H=4</pre>
+
+<h3>3.2 Transmisi&oacute;n extremo a extremo</h3>
+
+<p>Con la topolog&iacute;a convergida se ejecutaron transacciones completas entre el
+ATM y el servidor bancario. Se prob&oacute; adem&aacute;s la reubicaci&oacute;n de
+los equipos terminales para verificar que el enrutamiento es independiente de su
+posici&oacute;n. La cuenta de prueba <i>23016</i> parti&oacute; de un saldo de
+$400.00 en cada corrida.</p>
+
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>Configuraci&oacute;n</th><th>Ruta observada</th><th>Costo</th><th>Resultado</th></tr>
+<tr><td>ATM en A, banco en E</td><td>A &rarr; I &rarr; D &rarr; E</td><td>8</td><td>Autenticaci&oacute;n, retiro de $50.00 y cierre de sesi&oacute;n</td></tr>
+<tr><td>ATM en H, banco en E</td><td>H &rarr; F &rarr; D &rarr; E</td><td>6</td><td>Autenticaci&oacute;n, retiro de $50.00 y cierre de sesi&oacute;n</td></tr>
+<tr><td>ATM en A, banco en H</td><td>A &rarr; I &rarr; D &rarr; F &rarr; H</td><td>12</td><td>Autenticaci&oacute;n, retiro de $75.00 y cierre de sesi&oacute;n</td></tr>
+</table>
+
+<p>La bit&aacute;cora del primer caso registr&oacute; la ruta de ida y su retorno
+por el camino inverso:</p>
+
+<pre>A: mensaje hacia E reenviado por I; ruta=['A']
+I: mensaje hacia E reenviado por D; ruta=['A', 'I']
+D: mensaje hacia E reenviado por E; ruta=['A', 'I', 'D']
+E: mensaje entregado al host local; ruta=['A', 'I', 'D', 'E']
+
+E: mensaje hacia A reenviado por D; ruta=['E']
+D: mensaje hacia A reenviado por I; ruta=['E', 'D']
+I: mensaje hacia A reenviado por A; ruta=['E', 'D', 'I']
+A: mensaje entregado al host local; ruta=['E', 'D', 'I', 'A']</pre>
+
+<h3>3.3 Tabla de enrutamiento generada</h3>
+
+<p>La tabla calculada por el nodo A confirma que el primer salto hacia E es I, y no
+el enlace directo A&ndash;C que a simple vista parecer&iacute;a m&aacute;s
+corto:</p>
+
+<table border="1" cellpadding="5" cellspacing="0">
+<tr><th>Destino</th><th>Siguiente salto</th><th>Costo</th></tr>
+<tr><td>B</td><td>B</td><td>7</td></tr>
+<tr><td>C</td><td>C</td><td>7</td></tr>
+<tr><td>D</td><td>I</td><td>7</td></tr>
+<tr><td>E</td><td>I</td><td>8</td></tr>
+<tr><td>F</td><td>I</td><td>8</td></tr>
+<tr><td>G</td><td>I</td><td>11</td></tr>
+<tr><td>H</td><td>I</td><td>12</td></tr>
+<tr><td>I</td><td>I</td><td>1</td></tr>
+</table>
+
+<h3>3.4 Pruebas de interconexi&oacute;n sobre Tailscale</h3>
+
+<p>Se configur&oacute; la red privada virtual Tailscale con los seis integrantes de
+las tres parejas y se reemplazaron las direcciones locales por las direcciones
+asignadas en el rango <i>100.x.y.z</i>. Los nodos se distribuyeron entre cinco
+m&aacute;quinas de acuerdo con el reparto acordado.</p>
+
+<p>En la sesi&oacute;n de prueba se logr&oacute; interoperabilidad entre las
+implementaciones de las tres parejas para los nodos que estuvieron activos
+simult&aacute;neamente. El nodo local recibi&oacute; correctamente los HELLO de su
+vecino y proces&oacute; los LSA originados por nodos de las otras dos
+implementaciones, alcanzando un grafo de <b>6 nodos y 5 enlaces</b>
+(A&ndash;B, A&ndash;I, B&ndash;F, F&ndash;G, F&ndash;H). Los tres nodos restantes no
+estuvieron disponibles durante la ventana de prueba, por lo que la
+convergencia total sobre Tailscale qued&oacute; pendiente de una sesi&oacute;n con
+los seis integrantes conectados de forma simult&aacute;nea.</p>
+
+<h3>3.5 Pruebas automatizadas</h3>
+
+<p>La implementaci&oacute;n cuenta con <b>204 pruebas unitarias</b> que finalizaron
+satisfactoriamente. Cubren la topolog&iacute;a real calculada manualmente, el
+desempate entre rutas de igual costo, los destinos inalcanzables, la persistencia
+del archivo CSV, el descarte por TTL agotado, la detecci&oacute;n de bucles, la
+codificaci&oacute;n y correcci&oacute;n Hamming, y las operaciones del servidor
+bancario.</p>
+
+<h2>4. Discusi&oacute;n</h2>
+
+<p>Los resultados comprueban que el plano de control y el de datos operan en
+paralelo y se comunican exclusivamente mediante la tabla CSV. La escritura
+at&oacute;mica de dicho archivo evita lecturas parciales mientras el grafo
+reconverge, situaci&oacute;n que ocurre con frecuencia durante el arranque
+escalonado de los nodos.</p>
+
+<p>La ruta observada coincide con el resultado te&oacute;rico de Dijkstra y
+demuestra que el tr&aacute;fico no sigue el enlace que aparenta ser m&aacute;s
+directo. En el caso de A hacia E, la ruta por C costar&iacute;a 13 mientras que la
+ruta A&rarr;I&rarr;D&rarr;E cuesta 8. De igual forma, al ubicar el banco en H, el
+tr&aacute;fico eligi&oacute; A&rarr;I&rarr;D&rarr;F&rarr;H con costo 12 en lugar de
+A&rarr;B&rarr;F&rarr;H con costo 13. Esto confirma que las tablas reflejan
+decisiones basadas en el costo acumulado y no en el n&uacute;mero de saltos.</p>
+
+<p>El TTL y la lista <i>hops</i> aportan defensas complementarias contra bucles: el
+primero limita cualquier circulaci&oacute;n indefinida y la segunda detecta de
+inmediato el retorno a un router ya visitado. Ninguna de las dos result&oacute;
+suficiente por s&iacute; sola durante el desarrollo, pues el TTL permite que un
+mensaje circule varias veces antes de expirar mientras que <i>hops</i> no protege
+contra un mensaje malformado que llegue con la lista vac&iacute;a.</p>
+
+<p>La decisi&oacute;n de admitir en el grafo &uacute;nicamente los enlaces
+anunciados por ambos extremos result&oacute; determinante durante las pruebas sobre
+Tailscale. Al no existir envejecimiento de los LSA en el protocolo acordado, los
+anuncios de nodos que se desconectaron permanec&iacute;an en la base de datos; la
+exigencia de reciprocidad hizo que esos nodos quedaran autom&aacute;ticamente
+excluidos de todo camino en cuanto sus vecinos activos actualizaron sus propios
+anuncios. Este comportamiento se observ&oacute; directamente en la bit&aacute;cora,
+donde un nodo pas&oacute; de anunciar tres enlaces a anunciar dos tras el
+vencimiento del temporizador de vecino.</p>
+
+<p>La principal limitaci&oacute;n encontrada no fue de naturaleza t&eacute;cnica
+sino de coordinaci&oacute;n. La convergencia completa sobre Tailscale exige que los
+nueve procesos est&eacute;n activos dentro de la misma ventana de 15 segundos que
+dura el temporizador de vecino; de lo contrario, los nodos que arrancan tarde son
+declarados ca&iacute;dos por quienes ya estaban en l&iacute;nea. Se comprob&oacute;
+que la sincronizaci&oacute;n de la base de datos al detectar un vecino nuevo mitiga
+parcialmente este problema, pues acorta la convergencia de 30 segundos a
+aproximadamente 7.</p>
+
+<p>Respecto a la interoperabilidad, el hecho de que los LSA generados por las tres
+implementaciones se procesaran sin modificaciones confirma que la
+definici&oacute;n del protocolo fue suficientemente precisa. Las &uacute;nicas
+ambig&uuml;edades detectadas fueron los costos de los enlaces B&ndash;F, D&ndash;E y
+F&ndash;G, dif&iacute;ciles de leer en el diagrama del enunciado, y el formato
+exacto de las respuestas exitosas del banco. Ambas se resolvieron por acuerdo
+expl&iacute;cito entre las parejas antes de las pruebas.</p>
+
+<h2>5. Conclusiones</h2>
+
+<p>El protocolo Link State se implement&oacute; de forma completa y funcional: el
+descubrimiento de vecinos mediante HELLO, la construcci&oacute;n y propagaci&oacute;n
+de los LSA por inundaci&oacute;n controlada, el armado del grafo de la red y el
+c&aacute;lculo de rutas m&iacute;nimas con Dijkstra operan de manera aut&oacute;noma
+en cada nodo sin conocimiento previo de la topolog&iacute;a global.</p>
+
+<p>La separaci&oacute;n entre plano de control y plano de datos demostr&oacute; ser
+correcta en la pr&aacute;ctica. Ambos planos se ejecutan concurrentemente y su
+&uacute;nico acoplamiento es la tabla de enrutamiento, lo que permiti&oacute;
+reubicar los equipos terminales sin modificar una sola l&iacute;nea del plano de
+control.</p>
+
+<p>La inundaci&oacute;n controlada mediante n&uacute;meros de secuencia es
+suficiente para evitar tormentas de difusi&oacute;n. El descarte de anuncios con
+secuencia menor o igual a la ya conocida detiene la propagaci&oacute;n en un
+n&uacute;mero acotado de saltos, y el TTL act&uacute;a como respaldo ante nodos que
+reinician.</p>
+
+<p>La arquitectura de capas se cumpli&oacute; estrictamente: ning&uacute;n router
+intermedio interpret&oacute; el contenido de los mensajes de aplicaci&oacute;n,
+limit&aacute;ndose a leer el campo de destino y consultar su tabla. Esta
+propiedad es la que permite que las tres implementaciones interoperen pese a
+haber sido desarrolladas de forma independiente.</p>
+
+<p>El c&oacute;digo Hamming(7,4) cumple su funci&oacute;n de correcci&oacute;n de un
+bit por bloque, aunque su capacidad es limitada frente a errores en r&aacute;faga.
+En un medio confiable como TCP sobre Tailscale su aporte pr&aacute;ctico es
+reducido, pero cumple el objetivo did&aacute;ctico de ejercitar la capa de
+detecci&oacute;n y correcci&oacute;n de errores dentro de la pila.</p>
+
+<h2>6. Comentarios</h2>
+
+<p>La dificultad principal del laboratorio no residi&oacute; en los algoritmos sino
+en la coordinaci&oacute;n entre las tres parejas. Acordar de antemano los costos, los
+identificadores de nodo y el formato exacto de los mensajes result&oacute; ser
+m&aacute;s determinante para el &eacute;xito que cualquier detalle de
+implementaci&oacute;n.</p>
+
+<p>Se recomienda para futuras iteraciones incorporar un mecanismo de
+envejecimiento de los LSA, de modo que los anuncios de nodos desconectados expiren
+por s&iacute; solos en lugar de depender de la regla de reciprocidad. Asimismo,
+ser&iacute;a conveniente definir un procedimiento de arranque coordinado que evite
+que los nodos tempranos declaren ca&iacute;dos a los tard&iacute;os.</p>
+
+<h2>7. Referencias</h2>
+
+<p>Kurose, J. F., &amp; Ross, K. W. (2021). <i>Computer Networking: A Top-Down
+Approach</i> (8th ed.). Pearson.</p>
+
+<p>Tanenbaum, A. S., &amp; Wetherall, D. J. (2011). <i>Computer Networks</i> (5th
+ed.). Prentice Hall.</p>
+
+<p>Moy, J. (1998). <i>OSPF Version 2</i> (RFC 2328). Internet Engineering Task
+Force. https://www.rfc-editor.org/rfc/rfc2328</p>
+
+<p>Dijkstra, E. W. (1959). A note on two problems in connexion with graphs.
+<i>Numerische Mathematik</i>, 1(1), 269&ndash;271.</p>
+
+<p>Hamming, R. W. (1950). Error detecting and error correcting codes. <i>The Bell
+System Technical Journal</i>, 29(2), 147&ndash;160.</p>
+
+<p>Tailscale Inc. (2026). <i>Tailscale Documentation</i>.
+https://tailscale.com/kb</p>
+
+</body>
+</html>

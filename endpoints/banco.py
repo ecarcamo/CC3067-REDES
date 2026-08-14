@@ -30,6 +30,8 @@ from protocolo import mensajes
 from transporte.enlaces import Enlaces
 from transporte.servidor import Servidor
 
+_log = bitacora.obtener("banco")
+
 CUENTAS = {
     "4111111111111111": {"pin": "1234", "balance": 500.0},
     "5500005555555559": {"pin": "0000", "balance": 1200.5},
@@ -107,18 +109,33 @@ class Banco:
 
     def _recibir(self, linea: str, _ip_origen: str) -> None:
         try:
-            sobre, _ = mensajes.deserializar_datos(linea)
+            sobre, correcciones = mensajes.deserializar_datos(linea)
             mensajes.validar_sobre(sobre)
-        except ValueError:
+        except ValueError as error:
+            _log.warning("sobre invalido, se descarta: %s", error)
             return
         if sobre["to"] != self._gateway:
             return
 
-        respuesta = mensajes.crear_sobre(
-            sobre["to"], sobre["from"], self._logica.procesar(sobre["payload"])
+        if correcciones:
+            _log.info("Hamming corrigio %s bit(s) en el sobre recibido", correcciones)
+        _log.info(
+            "solicitud '%s' desde %s; ruta=%s",
+            sobre["payload"].get("op", "?"),
+            sobre["from"],
+            sobre.get("hops", []),
         )
+
+        resultado = self._logica.procesar(sobre["payload"])
+        respuesta = mensajes.crear_sobre(sobre["to"], sobre["from"], resultado)
         if "request_id" in sobre:
             respuesta["request_id"] = sobre["request_id"]
+        _log.info(
+            "respuesta '%s' hacia %s: %s",
+            resultado.get("op", "?"),
+            sobre["from"],
+            resultado.get("msg", ""),
+        )
         self._enlaces.enviar(self._gateway, mensajes.serializar_datos(respuesta))
 
 
