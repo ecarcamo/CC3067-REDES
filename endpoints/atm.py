@@ -131,8 +131,8 @@ def _ejecutar(cajero: Cajero) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     analizador = argparse.ArgumentParser(description="Cajero automático del laboratorio")
-    analizador.add_argument("--gateway", default="A", help="router conectado al ATM")
-    analizador.add_argument("--destino", default="E", help="router conectado al banco")
+    analizador.add_argument("--gateway", default="z", help="router conectado al ATM")
+    analizador.add_argument("--destino", default="v", help="router conectado al banco")
     analizador.add_argument("--topologia", default=str(configuracion.RUTA_TOPOLOGIA))
     analizador.add_argument("--nombres", default=str(configuracion.RUTA_NOMBRES))
     analizador.add_argument(

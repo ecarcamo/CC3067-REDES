@@ -141,7 +141,7 @@ class Banco:
 
 def main(argv: list[str] | None = None) -> int:
     analizador = argparse.ArgumentParser(description="Servidor bancario del laboratorio")
-    analizador.add_argument("--gateway", default="E", help="router conectado al banco")
+    analizador.add_argument("--gateway", default="v", help="router conectado al banco")
     analizador.add_argument("--topologia", default=str(configuracion.RUTA_TOPOLOGIA))
     analizador.add_argument("--nombres", default=str(configuracion.RUTA_NOMBRES))
     analizador.add_argument(
