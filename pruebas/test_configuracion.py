@@ -44,11 +44,18 @@ def test_cada_nodo_carga_su_propia_vista():
     config = configuracion.cargar("A", TOPOLOGIA, NOMBRES)
     assert config.vecinos == {"B": 7, "C": 7, "I": 1}
     assert config.direccion_propia.puerto == 6001
-    assert config.host is not None and config.host.tipo == "atm"
 
 
-def test_un_nodo_sin_host_no_tiene_terminal_colgado():
-    assert configuracion.cargar("B", TOPOLOGIA, NOMBRES).host is None
+def test_el_archivo_compartido_no_declara_equipos_terminales():
+    """El ATM y el banco se declaran al levantar el nodo, no en el archivo.
+
+    `nombres.json` es el acuerdo de direcciones de las tres parejas y solo lleva
+    routers; quien haga de cajero o de banco lo indica con `--host-tipo` y
+    `--host-puerto`, de modo que mover un equipo terminal no obliga a nadie a
+    editar el archivo compartido.
+    """
+    for identificador in "ABCDEFGHI":
+        assert configuracion.cargar(identificador, TOPOLOGIA, NOMBRES).host is None
 
 
 def test_todos_los_nodos_de_la_topologia_arrancan():
