@@ -87,6 +87,18 @@ class PlanoControl:
     def manejar(self, mensaje: dict, ip_origen: str) -> None:
         """Punto de entrada de todo el plano de control."""
         tipo = mensaje.get("type")
+        # Con --detallado queda constancia de cada paquete que entra, aunque
+        # despues se descarte. Es la unica forma de distinguir "no me llego" de
+        # "me llego y lo tire", que es la primera pregunta al depurar con otra
+        # implementacion.
+        _log.debug(
+            "recibido %s de %s (origen %s, seq %s) desde %s",
+            tipo,
+            mensaje.get("from"),
+            mensaje.get("origin", "-"),
+            mensaje.get("seq", "-"),
+            ip_origen,
+        )
         if tipo == TIPO_HELLO:
             self._manejar_hello(mensaje)
         elif tipo == TIPO_LSA:
@@ -123,6 +135,11 @@ class PlanoControl:
             return
 
         if not self.lsdb.registrar(origen, seq, mensaje["links"]):
+            _log.debug(
+                "LSA de %s seq %s repetido o mas viejo que el guardado, no se reenvia",
+                origen,
+                seq,
+            )
             # Repetido o viejo: aqui muere el ciclo.
             return
 
